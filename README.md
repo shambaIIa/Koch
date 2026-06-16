@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Koç Paneli — Bireysel Deneme-Koçluğu Platformu
 
-## Getting Started
+Bireysel özel ders koçu için **modüler** YKS deneme analizi ve koçluk platformu.
+Fark yaratan çekirdek fikir: deneme verisini koçluk akışına gömerek
+**"gir → otomatik analiz → görüşme gündemine düş"** döngüsünü tek yerde kapatmak;
+bunu **YZ'siz kural motoru** ve **bireysel koça sadelik** destekler.
 
-First, run the development server:
+## Teknoloji
+- **Next.js 16** (App Router, RSC, Server Actions) + **TypeScript**
+- **Prisma** + **SQLite** (geliştirme; şema Postgres'e taşınabilir)
+- **Tailwind CSS v4** + hafif kendi UI bileşenleri
+- **Recharts** (net trend grafikleri), **Zod** (doğrulama)
+- **jose** (imzalı oturum cookie) + **bcryptjs** (şifre)
 
+## Kurulum
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run db:push     # SQLite şemasını oluştur
+npm run db:seed     # demo koç + öğrenci + denemeler + sinyaller
+npm run dev         # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Demo giriş: **demo@koch.app / demo1234**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Diğer komutlar:
+```bash
+npm run build       # üretim derlemesi + tip kontrolü
+npm run db:studio   # Prisma Studio (veri görüntüleme)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Mimari
+- **Çoklu kiracı**: her koç bir kiracı. İzolasyon veri katmanında `coachId`
+  ile sağlanır (her sorgu koça göre filtrelenir). Postgres'e geçişte RLS'e
+  haritalanır.
+- **Modüler katmanlar** (`src/lib/modules.ts`):
+  - *Çekirdek* (hep açık): roller, öğrenci profili, çalışma planı, deneme
+    analizi, görüşme notları, dashboard.
+  - *Anahtarlanabilir* (feature-flag, `module_settings`): veli paneli,
+    motivasyon, kaynak kütüphanesi, video, bildirim merkezi.
+  - *Eklenti* (sonra, mimari hazır): YZ asistanı, kurum yönetimi, LMS.
+- **Kural motoru** (`src/lib/rules.ts`): deklaratif, eşik tabanlı sinyaller →
+  görüşme gündemi. `evaluateStudent` deneme/plan değiştikçe tetiklenir.
+- **OCR kapalı döngü** (Faz 3 hazır, `src/lib/ocr/`): pluggable `OcrProvider`
+  arayüzü; şu an `StubOcrProvider`, sonra Google Vision, ardından özel OMR.
+- **Veli modülü** (`src/lib/parent.ts`): nötr özet (net/hata kırılımı yok),
+  üç seviyeli görünürlük (hesap/öğrenci/içerik), öğrenci şeffaflığı.
 
-## Learn More
+## Yol Haritası
+- **Faz 0 — Temel** ✅: kurulum, auth, kiracı izolasyonu, feature-flag, tasarım.
+- **Faz 1 — Çekirdek MVP** ✅: roller, profil, manuel deneme + net analizi,
+  trend grafikleri, çalışma planı, görüşme notları, dashboard.
+- **Faz 2 — Kural Motoru** ✅: deklaratif sinyaller + otomatik görüşme gündemi.
+- **Faz 3 — OCR Kapalı Döngü** 🔌: `OcrProvider` arayüzü ve `OcrJob` modeli
+  hazır; Vision entegrasyonu eklenecek.
+- **Faz 4 — Anahtarlanabilir Modüller** ◐: veli haftalık nötr özet (push) +
+  görünürlük kontrolü uygulandı; diğer modüller flag iskeleti hazır.
+- **Faz 5 — Eklenti**: YZ/kurum/LMS (kapsam dışı, mimari hazır).
 
-To learn more about Next.js, take a look at the following resources:
+## Klasör yapısı
+```
+prisma/schema.prisma     # veri modeli
+prisma/seed.ts           # demo veri + kural motoru çalıştırma
+src/lib/                 # prisma, auth, yks, modules, rules, parent, ocr
+src/actions/             # server actions (auth, students, exams, plan, parent, modules)
+src/components/          # UI + form/grafik client bileşenleri
+src/app/(app)/           # korumalı uygulama (dashboard, students, agenda, settings)
+src/app/login, register  # kimlik doğrulama
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Karar notları
+- Sadece **YKS** (TYT/AYT). Faz 1 **tam manuel** giriş; OCR Faz 3'te
+  **önce bulut servisi (Vision)**, OMR sonra.
+- Birincil müşteri **bireysel koç** — kurum/admin katmanı çekirdek dışı eklenti.
